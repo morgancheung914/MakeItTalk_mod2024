@@ -86,6 +86,7 @@ for ain in ains:
     au_emb.append(me.reshape(-1))
 
     print('Processing audio file', ain)
+    print(opt_parser.load_AUTOVC_name)
     c = AutoVC_mel_Convertor('examples')
     au_data_i = c.convert_single_wav_to_autovc_input(audio_filename=os.path.join('examples', ain),
            autovc_model_path=opt_parser.load_AUTOVC_name)
@@ -197,6 +198,7 @@ for i in range(0,len(fls_names)):
     # Step 4 : Vector art morphing
     # ==============================================
     warp_exe = os.path.join(os.getcwd(), 'facewarp', 'facewarp.exe')
+    warp_linux = os.path.join(os.getcwd(), 'facewarp', 'facewarp_linux')
     import os
     
     if (os.path.exists(os.path.join(output_dir, 'output'))):
@@ -218,14 +220,23 @@ for i in range(0,len(fls_names)):
             '-novsync -dump'))
     else:
         ''' linux '''
-        os.system('wine {} {} {} {} {} {}'.format(
-            warp_exe,
+    #WINEDEBUG=+all WINEDEBUG=-msvcrt wine {} {} {} {} {} {}
+
+        os.system('{} {} {} {} {} {}'.format(
+            warp_linux,
             os.path.join(cur_dir, '..', '..', opt_parser.jpg),
             os.path.join(cur_dir, '..', 'triangulation.txt'),
             os.path.join(cur_dir, '..', 'reference_points.txt'),
             os.path.join(cur_dir, '..', 'warped_points.txt'),
-            os.path.join(cur_dir, '..', '..', opt_parser.jpg_bg),
-            '-novsync -dump'))
+             os.path.join(cur_dir, '..', '..', opt_parser.jpg_bg)))
+        # os.system('WINEDEBUG=+all WINEDEBUG=-msvcrt wine {} {} {} {} {} {}'.format(
+        #     warp_exe,
+        #     os.path.join(cur_dir, '..', '..', opt_parser.jpg),
+        #     os.path.join(cur_dir, '..', 'triangulation.txt'),
+        #     os.path.join(cur_dir, '..', 'reference_points.txt'),
+        #     os.path.join(cur_dir, '..', 'warped_points.txt'),
+        #     os.path.join(cur_dir, '..', '..', opt_parser.jpg_bg),
+        #     '-novsync -dump'))
     os.system('ffmpeg -y -r 62.5 -f image2 -i "%06d.tga" -i {} -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -shortest -strict -2 {}'.format(
         os.path.join(cur_dir, '..', '..', '..', 'examples', ain),
         os.path.join(cur_dir, '..', 'out.mp4')

@@ -1,9 +1,10 @@
 ffmpeg-python
-opencv-python
+opencv-python==3.4.13.47
 face_alignment
 scikit-learn
 pydub
-pynormalize
+
+pynormalize @ file:///C:/Users/Intern/Downloads/pynormalize
 soundfile
 librosa
 pysptk

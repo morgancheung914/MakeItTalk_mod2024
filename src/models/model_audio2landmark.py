@@ -27,7 +27,17 @@ EPSILON = 1e-40
 
 class Audio2landmark_content(nn.Module):
 
-    def __init__(self, num_window_frames=18, in_size=80, lstm_size=AUDIO_FEAT_SIZE, use_prior_net=False, hidden_size=256, num_layers=3, drop_out=0, bidirectional=False):
+    def __init__(
+        self,
+        num_window_frames=18,
+        in_size=80,
+        lstm_size=AUDIO_FEAT_SIZE,
+        use_prior_net=False,
+        hidden_size=256,
+        num_layers=3,
+        drop_out=0,
+        bidirectional=False,
+    ):
         super(Audio2landmark_content, self).__init__()
 
         self.fc_prior = self.fc = nn.Sequential(
@@ -38,20 +48,24 @@ class Audio2landmark_content(nn.Module):
         )
 
         self.use_prior_net = use_prior_net
-        if(use_prior_net):
-            self.bilstm = nn.LSTM(input_size=lstm_size,
-                                  hidden_size=hidden_size,
-                                  num_layers=num_layers,
-                                  dropout=drop_out,
-                                  bidirectional=bidirectional,
-                                  batch_first=True, )
+        if use_prior_net:
+            self.bilstm = nn.LSTM(
+                input_size=lstm_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                dropout=drop_out,
+                bidirectional=bidirectional,
+                batch_first=True,
+            )
         else:
-            self.bilstm = nn.LSTM(input_size=in_size,
-                                  hidden_size=hidden_size,
-                                  num_layers=num_layers,
-                                  dropout=drop_out,
-                                  bidirectional=bidirectional,
-                                  batch_first=True, )
+            self.bilstm = nn.LSTM(
+                input_size=in_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                dropout=drop_out,
+                bidirectional=bidirectional,
+                batch_first=True,
+            )
 
         self.in_size = in_size
         self.lstm_size = lstm_size
@@ -59,7 +73,9 @@ class Audio2landmark_content(nn.Module):
 
         self.fc_in_features = hidden_size * 2 if bidirectional else hidden_size
         self.fc = nn.Sequential(
-            nn.Linear(in_features=self.fc_in_features + FACE_ID_FEAT_SIZE, out_features=512),
+            nn.Linear(
+                in_features=self.fc_in_features + FACE_ID_FEAT_SIZE, out_features=512
+            ),
             nn.BatchNorm1d(512),
             nn.LeakyReLU(0.2),
             nn.Linear(512, 256),
@@ -68,19 +84,17 @@ class Audio2landmark_content(nn.Module):
             nn.Linear(256, 204),
         )
 
-
-
     def forward(self, au, face_id):
 
         inputs = au
-        if(self.use_prior_net):
+        if self.use_prior_net:
             inputs = self.fc_prior(inputs.contiguous().view(-1, self.in_size))
             inputs = inputs.view(-1, self.num_window_frames, self.lstm_size)
 
         output, (hn, cn) = self.bilstm(inputs)
         output = output[:, -1, :]
 
-        if(face_id.shape[0] == 1):
+        if face_id.shape[0] == 1:
             face_id = face_id.repeat(output.shape[0], 1)
         output2 = torch.cat((output, face_id), dim=1)
 
@@ -90,11 +104,11 @@ class Audio2landmark_content(nn.Module):
         return output2, face_id
 
 
-
 class Embedder(nn.Module):
     def __init__(self, feat_size, d_model):
         super().__init__()
         self.embed = nn.Linear(feat_size, d_model)
+
     def forward(self, x):
         return self.embed(x)
 
@@ -109,13 +123,11 @@ class PositionalEncoder(nn.Module):
         pe = torch.zeros(max_seq_len, d_model)
         for pos in range(max_seq_len):
             for i in range(0, d_model, 2):
-                pe[pos, i] = \
-                    math.sin(pos / (10000 ** ((2 * i) / d_model)))
-                pe[pos, i + 1] = \
-                    math.cos(pos / (10000 ** ((2 * (i + 1)) / d_model)))
+                pe[pos, i] = math.sin(pos / (10000 ** ((2 * i) / d_model)))
+                pe[pos, i + 1] = math.cos(pos / (10000 ** ((2 * (i + 1)) / d_model)))
 
         pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x):
         # make embeddings relatively larger
@@ -174,20 +186,21 @@ class MultiHeadAttention(nn.Module):
         scores = attention(q, k, v, self.d_k, mask, self.dropout)
 
         # concatenate heads and put through final linear layer
-        concat = scores.transpose(1, 2).contiguous() \
-            .view(bs, -1, self.d_model)
+        concat = scores.transpose(1, 2).contiguous().view(bs, -1, self.d_model)
 
         output = self.out(concat)
 
         return output
 
+
 class FeedForward(nn.Module):
-    def __init__(self, d_model, d_ff=2048, dropout = 0.1):
+    def __init__(self, d_model, d_ff=2048, dropout=0.1):
         super().__init__()
         # We set d_ff as a default to 2048
         self.linear_1 = nn.Linear(d_model, d_ff)
         self.dropout = nn.Dropout(dropout)
         self.linear_2 = nn.Linear(d_ff, d_model)
+
     def forward(self, x):
         x = self.dropout(F.relu(self.linear_1(x)))
         x = self.linear_2(x)
@@ -205,9 +218,14 @@ class Norm(nn.Module):
         self.eps = eps
 
     def forward(self, x):
-        norm = self.alpha * (x - x.mean(dim=-1, keepdim=True)) \
-               / (x.std(dim=-1, keepdim=True) + self.eps) + self.bias
+        norm = (
+            self.alpha
+            * (x - x.mean(dim=-1, keepdim=True))
+            / (x.std(dim=-1, keepdim=True) + self.eps)
+            + self.bias
+        )
         return norm
+
 
 # build an encoder layer with one multi-head attention layer and one # feed-forward layer
 class EncoderLayer(nn.Module):
@@ -229,6 +247,8 @@ class EncoderLayer(nn.Module):
 
     # build a decoder layer with two multi-head attention layers and
     # one feed-forward layer
+
+
 class DecoderLayer(nn.Module):
     def __init__(self, d_model, heads, dropout=0.1):
         super().__init__()
@@ -242,7 +262,7 @@ class DecoderLayer(nn.Module):
 
         self.attn_1 = MultiHeadAttention(heads, d_model)
         self.attn_2 = MultiHeadAttention(heads, d_model)
-        self.ff = FeedForward(d_model).cuda()
+        self.ff = FeedForward(d_model).to(device)  # originally .cuda()
 
     def forward(self, x, e_outputs, src_mask, trg_mask):
         x2 = self.norm_1(x)
@@ -255,6 +275,8 @@ class DecoderLayer(nn.Module):
         return x
 
     # We can then build a convenient cloning function that can generate multiple layers:
+
+
 def get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
@@ -295,24 +317,39 @@ class Decoder(nn.Module):
 
 class Audio2landmark_pos(nn.Module):
 
-    def __init__(self, audio_feat_size=80, c_enc_hidden_size=256, num_layers=3, drop_out=0,
-                 spk_feat_size=256, spk_emb_enc_size=128, lstm_g_win_size=64, add_info_size=6,
-                 transformer_d_model=32, N=2, heads=2, z_size=128, audio_dim=256):
+    def __init__(
+        self,
+        audio_feat_size=80,
+        c_enc_hidden_size=256,
+        num_layers=3,
+        drop_out=0,
+        spk_feat_size=256,
+        spk_emb_enc_size=128,
+        lstm_g_win_size=64,
+        add_info_size=6,
+        transformer_d_model=32,
+        N=2,
+        heads=2,
+        z_size=128,
+        audio_dim=256,
+    ):
         super(Audio2landmark_pos, self).__init__()
 
         self.lstm_g_win_size = lstm_g_win_size
         self.add_info_size = add_info_size
         comb_mlp_size = c_enc_hidden_size * 2
 
-        self.audio_content_encoder = nn.LSTM(input_size=audio_feat_size,
-                                             hidden_size=c_enc_hidden_size,
-                                             num_layers=num_layers,
-                                             dropout=drop_out,
-                                             bidirectional=False,
-                                             batch_first=True)
+        self.audio_content_encoder = nn.LSTM(
+            input_size=audio_feat_size,
+            hidden_size=c_enc_hidden_size,
+            num_layers=num_layers,
+            dropout=drop_out,
+            bidirectional=False,
+            batch_first=True,
+        )
 
         self.use_audio_projection = not (audio_dim == c_enc_hidden_size)
-        if(self.use_audio_projection):
+        if self.use_audio_projection:
             self.audio_projection = nn.Sequential(
                 nn.Linear(in_features=c_enc_hidden_size, out_features=256),
                 nn.LeakyReLU(0.02),
@@ -321,8 +358,7 @@ class Audio2landmark_pos(nn.Module):
                 nn.Linear(128, audio_dim),
             )
 
-
-        ''' original version '''
+        """ original version """
         self.spk_emb_encoder = nn.Sequential(
             nn.Linear(in_features=spk_feat_size, out_features=256),
             nn.LeakyReLU(0.02),
@@ -342,7 +378,9 @@ class Audio2landmark_pos(nn.Module):
         N = N
         heads = heads
 
-        self.encoder = Encoder(d_model, N, heads, in_size=audio_dim + spk_emb_enc_size + z_size)
+        self.encoder = Encoder(
+            d_model, N, heads, in_size=audio_dim + spk_emb_enc_size + z_size
+        )
         self.decoder = Decoder(d_model, N, heads, in_size=204)
         self.out = nn.Sequential(
             nn.Linear(in_features=d_model + z_size, out_features=512),
@@ -352,20 +390,23 @@ class Audio2landmark_pos(nn.Module):
             nn.Linear(256, 204),
         )
 
-
     def forward(self, au, emb, face_id, fls, z, add_z_spk=False, another_emb=None):
 
         # audio
         audio_encode, (_, _) = self.audio_content_encoder(au)
         audio_encode = audio_encode[:, -1, :]
 
-        if(self.use_audio_projection):
+        if self.use_audio_projection:
             audio_encode = self.audio_projection(audio_encode)
 
         # spk
         spk_encode = self.spk_emb_encoder(emb)
-        if(add_z_spk):
-            z_spk = torch.tensor(torch.randn(spk_encode.shape)*0.01, requires_grad=False, dtype=torch.float).to(device)
+        if add_z_spk:
+            z_spk = torch.tensor(
+                torch.randn(spk_encode.shape) * 0.01,
+                requires_grad=False,
+                dtype=torch.float,
+            ).to(device)
             spk_encode = spk_encode + z_spk
 
         # comb
@@ -383,17 +424,15 @@ class Audio2landmark_pos(nn.Module):
         return fl_pred, face_id[0:1, :], spk_encode
 
 
-
-
 def nopeak_mask(size):
-    np_mask = np.triu(np.ones((1, size, size)), k=1).astype('uint8')
+    np_mask = np.triu(np.ones((1, size, size)), k=1).astype("uint8")
     np_mask = torch.tensor(torch.from_numpy(np_mask) == 0)
     np_mask = np_mask.to(device)
     return np_mask
 
 
 def create_masks(src, trg):
-    src_mask = (src != torch.zeros_like(src, requires_grad=False))
+    src_mask = src != torch.zeros_like(src, requires_grad=False)
 
     if trg is not None:
         size = trg.size(1)  # get seq_len for matrix
@@ -440,8 +479,11 @@ class Transformer_DT(nn.Module):
     def forward(self, fls, spk_emb, win_size=64, win_step=1):
         feat = torch.cat((fls, spk_emb), dim=1)
 
-        win_size = feat.shape[0]-1 if feat.shape[0] <= win_size else win_size
-        D_input = [feat[i:i+win_size:win_step] for i in range(0, feat.shape[0]-win_size)]
+        win_size = feat.shape[0] - 1 if feat.shape[0] <= win_size else win_size
+        D_input = [
+            feat[i : i + win_size : win_step]
+            for i in range(0, feat.shape[0] - win_size)
+        ]
         D_input = torch.stack(D_input, dim=0)
         D_output = self.encoder(D_input)
         D_output = torch.max(D_output, dim=1, keepdim=False)[0]
@@ -451,15 +493,24 @@ class Transformer_DT(nn.Module):
 
 
 class TalkingToon_spk2res_lstmgan_DT(nn.Module):
-    def __init__(self, comb_emb_size=256, lstm_g_hidden_size=256, num_layers=3, drop_out=0, input_size=6):
+    def __init__(
+        self,
+        comb_emb_size=256,
+        lstm_g_hidden_size=256,
+        num_layers=3,
+        drop_out=0,
+        input_size=6,
+    ):
         super(TalkingToon_spk2res_lstmgan_DT, self).__init__()
 
-        self.fl_DT = nn.GRU(input_size=comb_emb_size + FACE_ID_FEAT_SIZE,
-                                             hidden_size=lstm_g_hidden_size,
-                                             num_layers=3,
-                                             dropout=0,
-                                             bidirectional=False,
-                                             batch_first=True)
+        self.fl_DT = nn.GRU(
+            input_size=comb_emb_size + FACE_ID_FEAT_SIZE,
+            hidden_size=lstm_g_hidden_size,
+            num_layers=3,
+            dropout=0,
+            bidirectional=False,
+            batch_first=True,
+        )
         self.projection = nn.Sequential(
             nn.Linear(in_features=lstm_g_hidden_size, out_features=512),
             nn.LeakyReLU(0.02),
@@ -481,7 +532,10 @@ class TalkingToon_spk2res_lstmgan_DT(nn.Module):
         feat = feat[0].transpose(0, 1)
 
         win_size = feat.shape[0] - 1 if feat.shape[0] <= win_size else win_size
-        D_input = [feat[i:i+win_size:win_step] for i in range(0, feat.shape[0]-win_size)]
+        D_input = [
+            feat[i : i + win_size : win_step]
+            for i in range(0, feat.shape[0] - win_size)
+        ]
         D_input = torch.stack(D_input, dim=0)
         D_output, _ = self.fl_DT(D_input)
         D_output = D_output[:, -1, :]

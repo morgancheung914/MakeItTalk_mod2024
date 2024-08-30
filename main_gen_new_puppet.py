@@ -180,7 +180,7 @@ Press Q or close the image window to continue.
 ================================================================= '''
 
 
-norm_anno(data_dir, CH, param=[0.7, 0.4, 0.5, 0.5], show=True)
+norm_anno(data_dir, CH, param=[0.7, 0.3, 0.5, 0.5], show=True)
 
 
 ''' =================================================================
@@ -194,5 +194,5 @@ Press any key to continue.
 ================================================================= '''
 
 
-delauney_tri(data_dir, test_data, INNER_ONLY=False)
+delauney_tri(data_dir, test_data, INNER_ONLY=True)
 
